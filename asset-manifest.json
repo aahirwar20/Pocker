@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/pocker/static/css/main.44f8b8b5.css",
+    "main.js": "/pocker/static/js/main.21e190fa.js",
+    "static/js/787.db0434a0.chunk.js": "/pocker/static/js/787.db0434a0.chunk.js",
+    "index.html": "/pocker/index.html",
+    "main.44f8b8b5.css.map": "/pocker/static/css/main.44f8b8b5.css.map",
+    "main.21e190fa.js.map": "/pocker/static/js/main.21e190fa.js.map",
+    "787.db0434a0.chunk.js.map": "/pocker/static/js/787.db0434a0.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.44f8b8b5.css",
+    "static/js/main.21e190fa.js"
+  ]
+}
