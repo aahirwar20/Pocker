@@ -1,5 +1,5 @@
 import { useState,useCallback } from "react";
-import {Container,Row,Col,Button,Form} from "react-bootstrap";
+import {Container,Row,Col,Button,Form, Stack} from "react-bootstrap";
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function Pocker(){
@@ -9,10 +9,11 @@ const [data,setData]=useState({big:{id:1,name:""},small:{id:2,name:""},currentPl
 const [tempData,setTempData]=useState([])
 const [nocurrent,setNocurrent]=useState(2)
 const [maxPoint,setMax]=useState(100)
-const [IncreasePoint,setIncreasePoint]=useState(0)
+const [IncreasePoint,setIncreasePoint]=useState(100)
 const[tick,setTick]=useState([0,0])
+const [start,setStart]=useState('true')
 
-const UpdateTempData=(Ids)=>{
+const UpdateTempData=(Ids)=>{                                         // update tempary points of one  round
   
   setTempData(()=>{
     let temp=[]
@@ -33,7 +34,7 @@ const UpdateTempData=(Ids)=>{
   })
 }
 
- async function getNo_winner(){
+ async function getNo_winner(){                                 // find no of winers of one rounds 
   let pp=0;
   tick.forEach((value)=>{ 
     if(value===1){
@@ -41,7 +42,7 @@ const UpdateTempData=(Ids)=>{
     else{}})
     return pp;
 }
-const get_prize=(No_winner)=>{
+const get_prize=(No_winner)=>{                                //total prize in the game
     let pp={No_winner:No_winner,prize:0}
     tempData.forEach((value)=>{pp.prize+=value.point})
     return pp 
@@ -62,16 +63,13 @@ const Update_prize=(data)=>{
 })
 return temp
 }
-async function resetPoint(){
-  getNo_winner().then().then()
- 
-}
+
 const Get_big=(GPlayer)=>{
   let k 
      k=data.big.id+1
      if(k>player.length){k=1}
   
-      while(player[k-1].check===false){k++;
+      while(GPlayer[k-1].check===false){k++;
       if(k>player.length){k=1}}
       return {big:{id:k,name:player[k-1].name}} 
 }
@@ -80,7 +78,7 @@ const Get_small=(GPlayer)=>{
       k=data.small.id+1
      if(k>player.length){k=1}
   
-      while(player[k-1].check===false){k++;
+      while(GPlayer[k-1].check===false){k++;
       if(k>player.length){k=1}}
       return {small:{id:k,name:player[k-1].name}}
 }
@@ -93,20 +91,7 @@ const Get_currentPlayer=(GPlayer)=>{
       if(k>player.length){k=1}}
       return {currentPlayer:{id:k,name:player[k-1].name}}
 }
-// const Update_big=useCallback((player)=>{
-//   var k
-//   setData((old)=>{
-      
-//      k=old.big.id+1
-//      if(k>player.length){k=1}
-  
-//       while(player[k-1].check===false){k++;
-//       if(k>player.length){k=1}}
-//       return {...old,big:{id:k,name:player[k-1].name}}
-//     })
-  
-  
-// },[])
+
 const Update_big=useCallback((Gdata)=>{
   setData((old)=>{
       return {...old,big:Gdata.big}
@@ -120,20 +105,6 @@ const Update_currentPlayer=useCallback((Gdata)=>{
   setData((old)=>{ return {...old,currentPlayer:Gdata.currentPlayer} })
 },[])
 
-// const Update_small=useCallback((player)=>{
-//   var k
-//   setData((old)=>{
-     
-//       k=old.small.id+1
-//      if(k>player.length){k=1}
-  
-//       while(player[k-1].check===false){k++;
-//       if(k>player.length){k=1}}
-//       return {...old,small:{id:k,name:player[k-1].name}}
-//     })
-   
-  
-// },[])
 
 
 const Done =()=>{
@@ -150,6 +121,7 @@ const Done =()=>{
      Update_small(small)
      Update_currentPlayer(current)
      UpdateTempData({big:big.big,small:small.small})
+     setMax(()=>100)
    })
  }
 
@@ -294,23 +266,7 @@ return {
 }
 
 
-// const checkTick=useCallback(()=>{
-//   setTick((old)=>{
-        
-//          let temp=JSON.parse(JSON.stringify(old));
-//         temp.push(0)
-//         console.log(tick)
-//         return temp
-//       })
-// },[player.length])
-// const checkTick=()=>{
-//   setTick(()=>{
-//     let temp=[]
-//     player.forEach(function(){temp.push(0)})
-//     console.log(player)
-//     return temp
-//   })
-// }
+
 
 const handleSubmit = (event,IntialData) => {
   
@@ -333,7 +289,7 @@ const IntialGame=useCallback((event,player,intialTempData)=>{
   event.stopPropagation();
   setData((old)=>{return {...old,big:{id:1,name:player[0].name,tempoint:0},small:{id:2,name:player[1].name,tempoint:0},currentPlayer:{id:2,name:player[1].name,tempoint:0}}})
    intialTempData();
-  
+  setStart(()=>'')
   setNocurrent(()=>player.length) 
    
 },[])
@@ -344,21 +300,29 @@ function ActivePlayer(check){
 }
 
 
-function Show(value){
-  return
-}
 
 const Addpoint=(value)=>{
   setIncreasePoint(()=>value.target.value)
   // console.log(tick)
 }
-const handleSubmitPoint=useCallback((event,data)=>{
-  event.preventDefault();
-  event.stopPropagation();
-  setTempData((old)=>{
 
-  })
-  },[])
+const AddNewPlayer = ()=>{if(start==='true'){
+  return (
+  <Form onSubmit={(event)=>{handleSubmit(event,IntialData)}} >
+<Form.Group className="mb-3" controlId="formname">
+<Form.Label>Name</Form.Label>
+<Form.Text className="text-muted">
+     add new player
+</Form.Text>
+<Form.Control type="name" value={newplayer.name} onChange={Addplayer} />
+
+</Form.Group>
+<Button variant="primary" type="submit">
+Submit
+</Button>
+</Form>
+  )
+}}
 
 
 
@@ -367,78 +331,77 @@ return(<>
 <Container>
   
     <Row className="md">
-    <Col md="6" >
-    <Row className="md">
-
-<Form onSubmit={(event)=>{handleSubmit(event,IntialData)}} >
-  <Form.Group className="mb-3" controlId="formname">
-    <Form.Label>Name</Form.Label>
-    <Form.Control type="name" value={newplayer.name} onChange={Addplayer} />
-    <Form.Text className="text-muted">
-      add new player
-    </Form.Text>
-  </Form.Group>
- <Button variant="primary" type="submit">
-    Submit
-  </Button>
-</Form>
-
-</Row>
-<Row className="md"><Col  md="4">Name</Col> <Col  md="4">Points</Col></Row>
-    {
-        player.map((value)=>
-           
-       <Row className="md" ><Col  md="4" style={ActivePlayer(value.check)}>{value.name}</Col> <Col  md="4">{value.data.point}</Col></Row>
-           
-        )
-    }
-     <Button variant="danger" onClick={(event)=>{IntialGame(event,player,intialTempData)}}>Game Start</Button>
+    <Col md="5" >
+      <Row className="md"><Button variant="danger" disabled={!start} onClick={(event)=>{IntialGame(event,player,intialTempData)}}>Game Start</Button></Row>
+      <Row className="md">{<AddNewPlayer/> }</Row>
+      
+      <Row><Col  >Name</Col> <Col  >Points</Col></Row>
+      
+      
+       {
+        player.map((value)=><Row className="md border bg-light" ><Col   style={ActivePlayer(value.check)}>{value.name}</Col> <Col >{value.data.point}</Col></Row>)
+        }
+    
     </Col>
+    <Col md="1"></Col>
     <Col md="6" >
-
     <Row className="md"><Button variant="dark" onClick={(event)=>{Done(data,nocurrent,tempData,player,event)}}>Done</Button></Row>
 
       <h3>Current Player: {data.currentPlayer.name}</h3>
       <p>Big: {data.big.name}</p>
       <p>Small: {data.small.name}</p>
       
-      <Row className="md">
-        <Col md="2"><Button variant="primary" onClick={(event)=>{Hold(data,nocurrent,tempData,player,event)}}>Hold</Button></Col>
-        <Col md="2"><Button variant="primary" onClick={(event)=>{Call(data,nocurrent,tempData,player,event)}}>Call</Button></Col>
-        <Col md="2"><Button variant="primary" onClick={(event)=>{Shaw(data,nocurrent,tempData,player,event)}}>Show</Button></Col>
-        <Col md="4"> 
-         <Form onSubmit={(event)=>{Increase(data,nocurrent,tempData,player,IncreasePoint,event)}} >
+      
+        <Stack direction="Vertical" gap="2">
+        <Stack direction="horizontal" gap="4">
+        <Button variant="primary" onClick={(event)=>{Hold(data,nocurrent,tempData,player,event)}}>Hold</Button>
+        <Button variant="primary" onClick={(event)=>{Call(data,nocurrent,tempData,player,event)}}>Call</Button>
+        <Button variant="primary" onClick={(event)=>{Shaw(data,nocurrent,tempData,player,event)}}>Show</Button>
+        </Stack>
+        
+        <Form onSubmit={(event)=>{Increase(data,nocurrent,tempData,player,IncreasePoint,event)}} >
+        <Stack  direction="horizontal" gap="1">
          <Button variant="primary" type="submit"> Increase</Button>
-        <Form.Group className="mb-3" controlId="formname">
-         <Form.Label>Give Point</Form.Label>
+        <Form.Group  controlId="formname">
+         
          <Form.Control type="name" value={IncreasePoint} onChange={Addpoint} />
-         <Form.Text className="text-muted">Increase point of current player</Form.Text>
+         
         </Form.Group>
+        </Stack>
+      </Form>
+     
        
-      </Form></Col>
-      </Row>
-    
+    <Container>
       {tempData.map((value)=>{
         
         if(player[value.id-1].check===true){
         return(
-          <Row className="md" >
-            <Col md="1"> 
+          <Row  className="border">
+            <Col md={{span:4,offset:0}}>
+              <Row>
+            <Stack direction="horizontal" gap="2">
+            <Col md={{span:1,offset:0}}>
             <Form.Check 
             type={"checkbox"}
             id={`default-checkbox}`}
             onChange={(event)=>{check(value.id,event)}}
              />
-           </Col>
-            <Col md="2"
-             style={ActivePlayer(value.check)}>{value.name}</Col>
+             </Col>
+             <Col md={{span:2,offset:1}}>
+              <span style={ActivePlayer(value.check)}>{value.name}</span>
+              </Col>
+              </Stack>
+              </Row>
+              </Col>
             {value.history.map((history1)=>
-              <Col md="1" >{history1}</Col>
+              <Col  >{history1}</Col>
            )}
           </Row>
         )}
         else{ return  }
       })}
+      </Container>
+      </Stack>
     </Col>
 
     
