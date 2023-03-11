@@ -1,13 +1,13 @@
-import { useState,useCallback } from "react";
+import { useState,useCallback} from "react";
 import {Container,Row,Col,Button,Form, Stack} from "react-bootstrap";
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function Pocker(){
-const [player,setPlayer]=useState([{id:1,name:"ankit",check:true,data:{point:2000,pointHistory:[],tempPoint:0,tempPointHistory:[]}},{id:2,name:"sarath",check:true,data:{point:2000,pointHistory:[],tempPoint:0,tempPointHistory:[]}}])
+const [player,setPlayer]=useState([])
 const [newplayer,setNewplayer]=useState({name:""})
 const [data,setData]=useState({big:{id:1,name:""},small:{id:2,name:""},currentPlayer:{id:2,name:""}})
 const [tempData,setTempData]=useState([])
-const [nocurrent,setNocurrent]=useState(2)
+const [nocurrent,setNocurrent]=useState(0)
 const [maxPoint,setMax]=useState(100)
 const [IncreasePoint,setIncreasePoint]=useState(100)
 const[tick,setTick]=useState([0,0])
@@ -251,13 +251,14 @@ const intialTempData=()=>{
   })
 }
 
-const Addplayer = useCallback((value)=>{
+const Addplayer = (value)=>{
   const t=value.target.value
-   setNewplayer((old)=>{return {...old,name:t}})})
+  //  console.log(newplayer)
+   setNewplayer((old)=>{return {...old,name:t}})}
  
 
-const IntialData=(old)=>{
-
+const IntialData=(old,newplayer)=>{
+ 
 return {
   id:old.length+1,
   name:newplayer.name,
@@ -272,14 +273,14 @@ const handleSubmit = (event,IntialData) => {
   
   event.preventDefault();
   event.stopPropagation();
-  setPlayer((old)=>[...old,IntialData(old)])
+  setPlayer((old)=>[...old,IntialData(old,newplayer)])
   setNocurrent((old)=>old+1);
   setTick((old)=>{
     let temp=JSON.parse(JSON.stringify(old));
    temp.push(0)
    return temp
  })
-  // console.log(player)
+//  console.log(newplayer.name)
 }
 // useCallback()
 
@@ -305,24 +306,28 @@ const Addpoint=(value)=>{
   setIncreasePoint(()=>value.target.value)
   // console.log(tick)
 }
+// const AddNewPlayer2=useCallback(()=>{
+//   return newplayer.name
+// },[newplayer])
 
-const AddNewPlayer = ()=>{if(start==='true'){
-  return (
-  <Form onSubmit={(event)=>{handleSubmit(event,IntialData)}} >
-<Form.Group className="mb-3" controlId="formname">
-<Form.Label>Name</Form.Label>
-<Form.Text className="text-muted">
-     add new player
-</Form.Text>
-<Form.Control type="name" value={newplayer.name} onChange={Addplayer} />
-
-</Form.Group>
-<Button variant="primary" type="submit">
-Submit
-</Button>
-</Form>
-  )
-}}
+const AddNewPlayer =useCallback( ( prop)=>{if(start==='true'){
+ return (<Form onSubmit={(event)=>{prop.handleSubmit(event,IntialData)}} >
+ <Stack direction="horizontal" gap="2">
+ <Form.Label>Name</Form.Label>
+ <Form.Text className="text-muted">
+      Add atleast two player
+ </Form.Text></Stack>
+ <Form.Group  controlId="formname"></Form.Group>
+ <Stack direction="horizontal" gap="3">
+ 
+ <Form.Control className="me-auto" type="name"  onChange={(event)=>prop.Addplayer(event)} />
+ 
+ 
+ <Button variant="primary" type="submit">
+ Submit
+ </Button></Stack>
+ </Form>)
+}},[])
 
 
 
@@ -333,7 +338,7 @@ return(<>
     <Row className="md">
     <Col md="5" >
       <Row className="md"><Button variant="danger" disabled={!start} onClick={(event)=>{IntialGame(event,player,intialTempData)}}>Game Start</Button></Row>
-      <Row className="md">{<AddNewPlayer/> }</Row>
+      <Row className="md">{<AddNewPlayer handleSubmit={handleSubmit} Addplayer={Addplayer}/> }</Row>
       
       <Row><Col  >Name</Col> <Col  >Points</Col></Row>
       
