@@ -10,7 +10,7 @@ const [tempData,setTempData]=useState([])
 const [nocurrent,setNocurrent]=useState(0)
 const [maxPoint,setMax]=useState(100)
 const [IncreasePoint,setIncreasePoint]=useState(100)
-const[tick,setTick]=useState([0,0])
+const[tick,setTick]=useState([])
 const [start,setStart]=useState('true')
 
 const UpdateTempData=(Ids)=>{                                         // update tempary points of one  round
@@ -49,6 +49,7 @@ const get_prize=(No_winner)=>{                                //total prize in t
 }
 const Update_prize=(data)=>{
   let temp=player;
+  
   tick.forEach((value,index)=>{
     if(value===1){
   
@@ -153,7 +154,8 @@ const Holdtempdata=useCallback((data)=>{
     if(value.id===data.currentPlayer.id){
       newarr[value.id-1].check=false
       if(newarr[value.id-1].history.length===0){newarr[value.id-1].history.push(newarr[value.id-1].point)
-         console.log(newarr)}
+        // 
+      }
       else{ 
         if(newarr[value.id-1].history[newarr[value.id-1].history.length-1]>newarr[value.id-1].point){ 
           newarr[value.id-1].point=newarr[value.id-1].history[newarr[value.id-1].history.length-1]}
@@ -231,7 +233,7 @@ const Increase= (data,no,tempData,player,IncreasePoint,event)=>{
 }
 
 const intialTempData=()=>{
-  console.log(data)
+  // console.log(data)
   setTempData(()=>{
     let temp=[]
     player.forEach(function(value){
@@ -327,7 +329,7 @@ const AddNewPlayer =useCallback( ( prop)=>{if(start==='true'){
  Submit
  </Button></Stack>
  </Form>)
-}},[])
+}},[start])
 
 
 
