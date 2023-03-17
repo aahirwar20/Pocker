@@ -12,7 +12,7 @@ const [maxPoint,setMax]=useState(100)
 const [IncreasePoint,setIncreasePoint]=useState(100)
 const[tick,setTick]=useState([])
 const [start,setStart]=useState('true')
-
+const[TempHistory,setTempHistory]=useState({maxPoint:[100],Hold:[0]})
 const UpdateTempData=(Ids)=>{                                         // update tempary points of one  round
   
   setTempData(()=>{
@@ -112,6 +112,7 @@ const Done =()=>{
   // console.log(tick)
   // console.log(player)
   // console.log(tempData)
+  setTempHistory((old)=>{return {...old,maxPoint:[100],Hold:[0]}})
   getNo_winner().then(get_prize).then(Update_prize).then((temp)=>{ 
     // console.log(temp)
      setPlayer(()=>temp)
@@ -171,7 +172,7 @@ const Holdtempdata=useCallback((data)=>{
 
 useCallback(()=>{ setData((old)=>old)},[tempData])
 
-const Calltempdata=(data,maxPoint,event)=>{
+const Calltempdata=(data,point)=>{
   
   
   setTempData((old)=>{
@@ -179,8 +180,25 @@ const Calltempdata=(data,maxPoint,event)=>{
    old.forEach((value)=>{
     if(value.id===data.currentPlayer.id){
      
-      newarr[value.id-1].history.push(maxPoint)
-      newarr[value.id-1].point=maxPoint
+      newarr[value.id-1].history.push(point)
+      newarr[value.id-1].point=point
+      } })
+  
+   
+    return newarr
+  })
+  
+}
+const CalltempdataAll=(data)=>{
+  
+  
+  setTempData((old)=>{
+    let newarr=JSON.parse(JSON.stringify(old));
+   old.forEach((value)=>{
+    if(value.id===data.currentPlayer.id){
+      setMax(()=>player[value.id-1].data.point)
+      newarr[value.id-1].history.push(player[value.id-1].data.point)
+      newarr[value.id-1].point=player[value.id-1].data.point
       } })
   
    
@@ -203,21 +221,44 @@ const Update_player=useCallback((tempData,player)=>{
 
 },[])
 
+const Update_TempHistory=(value)=>{
+  setTempHistory((old)=>{
+    let t=JSON.parse(JSON.stringify(old));
+    t.Hold.push(value)
+    t.maxPoint.push(maxPoint)
+    return {...old,Hold:t.Hold,maxPoint:t.maxPoint}})
+}
+
+const Undo_TempHistory=( TempHistory)=>{
+  setMax(()=>TempHistory.maxPoint[TempHistory.maxPoint.length-1])
+  
+  setTempHistory((old)=>{
+    let t=JSON.parse(JSON.stringify(old));
+    t.Hold.pop()
+    t.maxPoint.pop()
+    return {...old,Hold:t.Hold,maxPoint:t.maxPoint}})
+}
+
 const Hold=(data,no,tempData,player,event)=>{
   Holdtempdata(data,no,tempData,player,event)
   Update_player(tempData,player)
+  Update_TempHistory(1)
   
 }
 const Call= (data,no,tempData,player,event)=>{
   Calltempdata(data,maxPoint,event)
   Update_player(tempData,player)
+  Update_TempHistory(0)
 }
 const Shaw=  (data,no,tempData,player,event)=>{
-  Calltempdata(data,maxPoint,event)
+  CalltempdataAll(data,player)
   Update_player(tempData,player)
+ 
+  Update_TempHistory(0)
 }
 const setIncrease = async(IncreasePoint)=>{
   return maxPoint+Number(IncreasePoint)
+
 }
 const Increase= (data,no,tempData,player,IncreasePoint,event)=>{
   event.preventDefault();
@@ -229,7 +270,69 @@ const Increase= (data,no,tempData,player,IncreasePoint,event)=>{
     Calltempdata(data,maxPoint,event)
     Update_player(tempData,player)}})
     
+   Update_TempHistory(0)
+}
+
+const UndoTempData=(id,data,player,TempHistory)=>{
+  setTempData((old)=>{
+    let newarr=JSON.parse(JSON.stringify(old));
+    let k=id-1
+    if(k===0){k=player.length}
+    while((newarr[k-1].check===false||player[k-1].check===false)&&TempHistory.Hold[TempHistory.Hold.length-1]===0){k--;
+      if(k<1){k=player.length}}
+   old.forEach((value)=>{
   
+    if(value.id===k){
+   
+      if(TempHistory.Hold[TempHistory.Hold.length-1]===1){
+        newarr[value.id-1].check=true
+      }
+      else{
+        if(newarr[value.id-1].history.length===1){
+          if(data.small.id===value.id){
+            newarr[value.id-1].point=50 
+          }
+          else{
+            newarr[value.id-1].point=0
+          }
+        }
+        else{
+        newarr[value.id-1].point=newarr[value.id-1].history[newarr[value.id-1].history.length-2]
+        }
+        newarr[value.id-1].history.pop()
+      }
+      
+      
+      
+      } })
+  return newarr
+  })
+  
+}
+const UndoCurrent=(tempData,player,TempHistory,data)=>{
+  setData((old)=>{
+    // let newarr=JSON.parse(JSON.stringify(old))
+   let newarr=data
+    var k=newarr.currentPlayer.id-1
+    if(k<1){k=player.length}
+ 
+     while((tempData[k-1].check===false||player[k-1].check===false)&&TempHistory.Hold[TempHistory.Hold.length-1]===0){k--;
+     if(k<1){k=player.length}}
+     return {...newarr,currentPlayer:{id:k,name:player[k-1].name}}
+   })
+}
+ const findCurrent= async(data)=>{
+   return data
+ }
+const Undo =(data,player,tempData,TempHistory,event)=>{
+  if(TempHistory.Hold.length>1){
+ findCurrent(data).then((data)=>{
+  UndoTempData( data.currentPlayer.id,data,player,TempHistory)
+  UndoCurrent(tempData,player,TempHistory,data)
+ })
+  
+  Undo_TempHistory( TempHistory)}
+ 
 }
 
 const intialTempData=()=>{
@@ -361,9 +464,10 @@ return(<>
       
         <Stack direction="Vertical" gap="2">
         <Stack direction="horizontal" gap="4">
-        <Button variant="primary" onClick={(event)=>{Hold(data,nocurrent,tempData,player,event)}}>Hold</Button>
+        <Button variant="primary" onClick={(event)=>{Hold(data,nocurrent,tempData,player,event)}}>Fold</Button>
         <Button variant="primary" onClick={(event)=>{Call(data,nocurrent,tempData,player,event)}}>Call</Button>
-        <Button variant="primary" onClick={(event)=>{Shaw(data,nocurrent,tempData,player,event)}}>Show</Button>
+        <Button variant="primary" onClick={(event)=>{Shaw(data,nocurrent,tempData,player,event)}}>ALL IN</Button>
+        <Button variant="primary" onClick={(event)=>{Undo(data,player,tempData,TempHistory,event)}}>Undo</Button>
         </Stack>
         
         <Form onSubmit={(event)=>{Increase(data,nocurrent,tempData,player,IncreasePoint,event)}} >
