@@ -13,6 +13,7 @@ const [IncreasePoint,setIncreasePoint]=useState(100)
 const[tick,setTick]=useState([])
 const [start,setStart]=useState('true')
 const[TempHistory,setTempHistory]=useState({maxPoint:[100],Hold:[0]})
+const[ShowTable,setShowTable]=useState('false')
 const UpdateTempData=(Ids)=>{                                         // update tempary points of one  round
   
   setTempData(()=>{
@@ -54,12 +55,13 @@ const Update_prize=(data)=>{
     if(value===1){
   
      temp[index].data.point+=parseInt(data.prize/data.No_winner)-tempData[index].point
+    
     }
     else{
       if( temp[index].data.point-tempData[index].point<=0){ setNocurrent((old)=>old-1); temp[index].check=false }
       temp[index].data.point-=tempData[index].point
     }
-   
+    temp[index].data.pointHistory.push(temp[index].data.point)
   
 })
 return temp
@@ -154,7 +156,8 @@ const Holdtempdata=useCallback((data)=>{
    old.forEach((value)=>{
     if(value.id===data.currentPlayer.id){
       newarr[value.id-1].check=false
-      if(newarr[value.id-1].history.length===0){newarr[value.id-1].history.push(newarr[value.id-1].point)
+      if(newarr[value.id-1].history.length===0){
+        // newarr[value.id-1].history.push(newarr[value.id-1].point)
         // 
       }
       else{ 
@@ -170,7 +173,7 @@ const Holdtempdata=useCallback((data)=>{
   
 },[])
 
-useCallback(()=>{ setData((old)=>old)},[tempData])
+// useCallback(()=>{ setData((old)=>old)},[])
 
 const Calltempdata=(data,point)=>{
   
@@ -368,7 +371,7 @@ return {
   id:old.length+1,
   name:newplayer.name,
   check:true,
-  data:{point:2000,pointHistory:[],tempPoint:0,tempPointHistory:[],}}
+  data:{point:2000,pointHistory:[2000],tempPoint:0,tempPointHistory:[],}}
 }
 
 
@@ -409,6 +412,7 @@ function ActivePlayer(check){
 
 const Addpoint=(value)=>{
   setIncreasePoint(()=>value.target.value)
+
   // console.log(tick)
 }
 // const AddNewPlayer2=useCallback(()=>{
@@ -434,7 +438,28 @@ const AddNewPlayer =useCallback( ( prop)=>{if(start==='true'){
  </Form>)
 }},[start])
 
-
+const UpdateShowTable=(event)=>{
+ if(ShowTable==='false'){
+  //  console.log("hello")
+  setShowTable(()=>'true')}
+  else{setShowTable(()=>'false')}
+}
+const AddTable =useCallback((prop)=>{
+  // console.log(prop.ShowTable)
+ if(prop.ShowTable==='true'){
+  
+   return(<Row className="md" >
+      {prop.player.map((value,index)=>{
+        return <Col key={index} className="border">
+        <Row className="border" style={{color:"green"}}>{value.name}</Row>
+        {value.data.pointHistory.map((point)=>{
+         return  <Row key={index+index+1}>{point}</Row>
+        })}
+        </Col>
+      })}
+    </Row>)
+ }
+},[])
 
 return(<>
 
@@ -449,7 +474,7 @@ return(<>
       
       
        {
-        player.map((value)=><Row className="md border bg-light" ><Col   style={ActivePlayer(value.check)}>{value.name}</Col> <Col >{value.data.point}</Col></Row>)
+        player.map((value,index)=><Row className="md border bg-light" key={index*4+4}><Col   style={ActivePlayer(value.check)}>{value.name}</Col> <Col >{value.data.point}</Col></Row>)
         }
     
     </Col>
@@ -483,11 +508,11 @@ return(<>
      
        
     <Container>
-      {tempData.map((value)=>{
+      {tempData.map((value,index)=>{
         
         if(player[value.id-1].check===true){
         return(
-          <Row  className="border">
+          <Row  className="border" key={index}>
             <Col md={{span:4,offset:0}}>
               <Row>
             <Stack direction="horizontal" gap="2">
@@ -504,8 +529,8 @@ return(<>
               </Stack>
               </Row>
               </Col>
-            {value.history.map((history1)=>
-              <Col  >{history1}</Col>
+            {value.history.map((history1,index)=>
+             {return  <Col key={index*5+5} >{history1}</Col>}
            )}
           </Row>
         )}
@@ -518,8 +543,11 @@ return(<>
     
 
     </Row>
+    <Row>
+     <Button  variant="light" onClick={UpdateShowTable}>Table</Button> 
+    </Row>
     
-   
+   <AddTable ShowTable={ShowTable} player={player}/>
     
    
 </Container>
