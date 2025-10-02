@@ -1,556 +1,598 @@
-import { useState,useCallback} from "react";
-import {Container,Row,Col,Button,Form, Stack} from "react-bootstrap";
-import 'bootstrap/dist/css/bootstrap.min.css';
+import { useCallback, useMemo, useState } from "react";
+import { Button, Col, Container, Form, Row, Stack } from "react-bootstrap";
+import "bootstrap/dist/css/bootstrap.min.css";
 
-function Pocker(){
-const [player,setPlayer]=useState([])
-const [newplayer,setNewplayer]=useState({name:""})
-const [data,setData]=useState({big:{id:1,name:""},small:{id:2,name:""},currentPlayer:{id:2,name:""}})
-const [tempData,setTempData]=useState([])
-const [nocurrent,setNocurrent]=useState(0)
-const [maxPoint,setMax]=useState(100)
-const [IncreasePoint,setIncreasePoint]=useState(100)
-const[tick,setTick]=useState([])
-const [start,setStart]=useState('true')
-const[TempHistory,setTempHistory]=useState({maxPoint:[100],Hold:[0]})
-const[ShowTable,setShowTable]=useState('false')
-const UpdateTempData=(Ids)=>{                                         // update tempary points of one  round
-  
-  setTempData(()=>{
-    let temp=[]
-    player.forEach(function(value){
-      if(value.id===Ids.big.id){
-        temp.push({id:value.id,name:value.name,point:100,history:[100],check:true})
-      }
-      else if(value.id===Ids.small.id){
-        temp.push({id:value.id,name:value.name,point:50,history:[],check:true})
-      }
-      else{
-        temp.push({id:value.id,name:value.name,point:0,history:[],check:true})
-      }
-     
-    })
-   // console.log(temp)
-    return temp;
-  })
-}
+const INITIAL_STACK = 2000;
+const BIG_BLIND = 100;
+const SMALL_BLIND = 50;
 
- async function getNo_winner(){                                 // find no of winers of one rounds 
-  let pp=0;
-  tick.forEach((value)=>{ 
-    if(value===1){
-     pp++;}
-    else{}})
-    return pp;
-}
-const get_prize=(No_winner)=>{                                //total prize in the game
-    let pp={No_winner:No_winner,prize:0}
-    tempData.forEach((value)=>{pp.prize+=value.point})
-    return pp 
-}
-const Update_prize=(data)=>{
-  let temp=player;
-  
-  tick.forEach((value,index)=>{
-    if(value===1){
-  
-     temp[index].data.point+=parseInt(data.prize/data.No_winner)-tempData[index].point
-    
+const deepCloneRoundData = (entries) =>
+  entries.map((entry) => ({
+    ...entry,
+    history: [...entry.history],
+  }));
+
+const getNextActivePlayerId = (players, startId) => {
+  if (!players.length) {
+    return null;
+  }
+
+  const firstActive = players.find((player) => player.isActive);
+  if (!firstActive) {
+    return null;
+  }
+
+  const startIndex = startId == null
+    ? players.findIndex((player) => player.id === firstActive.id)
+    : players.findIndex((player) => player.id === startId);
+
+  if (startIndex === -1) {
+    return firstActive.id;
+  }
+
+  for (let offset = 1; offset <= players.length; offset += 1) {
+    const candidate = players[(startIndex + offset) % players.length];
+    if (candidate.isActive) {
+      return candidate.id;
     }
-    else{
-      if( temp[index].data.point-tempData[index].point<=0){ setNocurrent((old)=>old-1); temp[index].check=false }
-      temp[index].data.point-=tempData[index].point
+  }
+
+  return firstActive.id;
+};
+
+const getNextInHandPlayerId = (roundData, players, startId) => {
+  if (!players.length) {
+    return null;
+  }
+
+  const roundEntries = new Map(roundData.map((entry) => [entry.playerId, entry]));
+  const firstInHand = players.find(
+    (player) => player.isActive && roundEntries.get(player.id)?.isInHand,
+  );
+
+  if (!firstInHand) {
+    return null;
+  }
+
+  const playerOrder = new Map(players.map((player, index) => [player.id, index]));
+  const startIndex = startId == null ? playerOrder.get(firstInHand.id) : playerOrder.get(startId);
+
+  if (startIndex == null) {
+    return firstInHand.id;
+  }
+
+  for (let offset = 1; offset <= players.length; offset += 1) {
+    const candidate = players[(startIndex + offset) % players.length];
+    const entry = roundEntries.get(candidate.id);
+    if (candidate.isActive && entry?.isInHand) {
+      return candidate.id;
     }
-    temp[index].data.pointHistory.push(temp[index].data.point)
-  
-})
-return temp
-}
+  }
 
-const Get_big=(GPlayer)=>{
-  let k 
-     k=data.big.id+1
-     if(k>player.length){k=1}
-  
-      while(GPlayer[k-1].check===false){k++;
-      if(k>player.length){k=1}}
-      return {big:{id:k,name:player[k-1].name}} 
-}
-const Get_small=(GPlayer)=>{
-  let k
-      k=data.small.id+1
-     if(k>player.length){k=1}
-  
-      while(GPlayer[k-1].check===false){k++;
-      if(k>player.length){k=1}}
-      return {small:{id:k,name:player[k-1].name}}
-}
-const Get_currentPlayer=(GPlayer)=>{
-  let k
-      k=data.small.id+1
-     if(k>player.length){k=1}
-  
-      while(player[k-1].check===false){k++;
-      if(k>player.length){k=1}}
-      return {currentPlayer:{id:k,name:player[k-1].name}}
-}
+  return firstInHand.id;
+};
 
-const Update_big=useCallback((Gdata)=>{
-  setData((old)=>{
-      return {...old,big:Gdata.big}
-    }) 
-},[])
+const buildRoundData = (players, blinds) =>
+  players.map((player) => {
+    const isBigBlind = player.id === blinds.bigBlindId;
+    const isSmallBlind = player.id === blinds.smallBlindId;
 
-const Update_small=useCallback((Gdata)=>{
-   setData((old)=>{ return {...old,small:Gdata.small} })
-},[])
-const Update_currentPlayer=useCallback((Gdata)=>{
-  setData((old)=>{ return {...old,currentPlayer:Gdata.currentPlayer} })
-},[])
+    return {
+      playerId: player.id,
+      name: player.name,
+      contribution: isBigBlind ? BIG_BLIND : isSmallBlind ? SMALL_BLIND : 0,
+      history: isBigBlind ? [BIG_BLIND] : [],
+      isInHand: player.isActive,
+    };
+  });
 
+const playerColorStyle = (isActive) => ({ color: isActive ? "blue" : "red" });
 
+function Pocker() {
+  const [players, setPlayers] = useState([]);
+  const [roundState, setRoundState] = useState({
+    bigBlindId: null,
+    smallBlindId: null,
+    currentPlayerId: null,
+  });
+  const [roundData, setRoundData] = useState([]);
+  const [roundHistory, setRoundHistory] = useState([]);
+  const [winnerSelections, setWinnerSelections] = useState([]);
+  const [currentCallAmount, setCurrentCallAmount] = useState(BIG_BLIND);
+  const [raiseIncrement, setRaiseIncrement] = useState(String(BIG_BLIND));
+  const [newPlayerName, setNewPlayerName] = useState("");
+  const [gameStarted, setGameStarted] = useState(false);
+  const [showTable, setShowTable] = useState(false);
 
-const Done =()=>{
-  // console.log(tick)
-  // console.log(player)
-  // console.log(tempData)
-  setTempHistory((old)=>{return {...old,maxPoint:[100],Hold:[0]}})
-  getNo_winner().then(get_prize).then(Update_prize).then((temp)=>{ 
-    // console.log(temp)
-     setPlayer(()=>temp)
-     let small=Get_small(temp)
-     let big=Get_big(temp)
-     let current=Get_currentPlayer()
-     Update_big(big)
-     Update_small(small)
-     Update_currentPlayer(current)
-     UpdateTempData({big:big.big,small:small.small})
-     setMax(()=>100)
-   })
- }
+  const currentPlayer = useMemo(
+    () => players.find((player) => player.id === roundState.currentPlayerId),
+    [players, roundState.currentPlayerId],
+  );
+  const bigBlindPlayer = useMemo(
+    () => players.find((player) => player.id === roundState.bigBlindId),
+    [players, roundState.bigBlindId],
+  );
+  const smallBlindPlayer = useMemo(
+    () => players.find((player) => player.id === roundState.smallBlindId),
+    [players, roundState.smallBlindId],
+  );
+  const canUndo = roundHistory.length > 1;
+  const selectedWinnerCount = winnerSelections.filter(Boolean).length;
 
-const check =(id,event)=>{
-  setTick((old)=>{
-    let temp=JSON.parse(JSON.stringify(old));
-    temp.forEach((value,index)=>{
-      if(index===id-1){
-       // console.log(event.target.checked)
-        if(event.target.checked===true){
-        temp[index]=1;}
-       
-        else{     temp[index]=0;} 
+  const commitRoundState = useCallback(
+    (nextData, nextCallAmount, nextCurrentPlayerId) => {
+      const snapshot = {
+        contributions: deepCloneRoundData(nextData),
+        currentCallAmount: nextCallAmount,
+        currentPlayerId: nextCurrentPlayerId,
+      };
+
+      setRoundData(nextData);
+      setCurrentCallAmount(nextCallAmount);
+      setRoundState((previous) => ({
+        ...previous,
+        currentPlayerId: nextCurrentPlayerId,
+      }));
+      setRoundHistory((previous) => [...previous, snapshot]);
+    },
+    [],
+  );
+
+  const handleAddPlayer = useCallback(
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const trimmedName = newPlayerName.trim();
+      if (!trimmedName) {
+        return;
       }
-    })
-     
-    return temp;
-   
-   })
-}
 
+      setPlayers((previous) => {
+        const nextId = previous.length + 1;
+        return [
+          ...previous,
+          {
+            id: nextId,
+            name: trimmedName,
+            isActive: true,
+            stack: INITIAL_STACK,
+            stackHistory: [INITIAL_STACK],
+          },
+        ];
+      });
+      setWinnerSelections((previous) => [...previous, false]);
+      setNewPlayerName("");
+    },
+    [newPlayerName],
+  );
 
+  const handleStartGame = useCallback(() => {
+    if (gameStarted || players.length < 2) {
+      return;
+    }
 
-const Holdtempdata=useCallback((data)=>{
-  
-  setTempData((old)=>{
-    var newarr=old;
-   old.forEach((value)=>{
-    if(value.id===data.currentPlayer.id){
-      newarr[value.id-1].check=false
-      if(newarr[value.id-1].history.length===0){
-        // newarr[value.id-1].history.push(newarr[value.id-1].point)
-        // 
+    const initialRoundState = {
+      bigBlindId: players[0].id,
+      smallBlindId: players[1].id,
+    };
+
+    const initialRoundData = buildRoundData(players, initialRoundState);
+    const nextCurrentPlayerId =
+      getNextInHandPlayerId(initialRoundData, players, initialRoundState.smallBlindId) ??
+      initialRoundState.smallBlindId;
+
+    setRoundState({
+      ...initialRoundState,
+      currentPlayerId: nextCurrentPlayerId,
+    });
+    setRoundData(initialRoundData);
+    setCurrentCallAmount(BIG_BLIND);
+    setRoundHistory([
+      {
+        contributions: deepCloneRoundData(initialRoundData),
+        currentCallAmount: BIG_BLIND,
+        currentPlayerId: nextCurrentPlayerId,
+      },
+    ]);
+    setWinnerSelections(new Array(players.length).fill(false));
+    setRaiseIncrement(String(BIG_BLIND));
+    setGameStarted(true);
+  }, [gameStarted, players]);
+
+  const handleToggleWinner = useCallback((index, checked) => {
+    setWinnerSelections((previous) => {
+      const next = [...previous];
+      next[index] = checked;
+      return next;
+    });
+  }, []);
+
+  const moveToNextPlayer = useCallback(
+    (nextRoundData, fallbackId) =>
+      getNextInHandPlayerId(nextRoundData, players, fallbackId) ?? fallbackId,
+    [players],
+  );
+
+  const handleFold = useCallback(() => {
+    if (!roundState.currentPlayerId) {
+      return;
+    }
+
+    const nextData = roundData.map((entry) => {
+      if (entry.playerId !== roundState.currentPlayerId) {
+        return entry;
       }
-      else{ 
-        if(newarr[value.id-1].history[newarr[value.id-1].history.length-1]>newarr[value.id-1].point){ 
-          newarr[value.id-1].point=newarr[value.id-1].history[newarr[value.id-1].history.length-1]}
-        else if(newarr[value.id-1].history[newarr[value.id-1].history.length-1]<newarr[value.id-1].point){ newarr[value.id-1].history.push(newarr[value.id-1].point)}
-      }
-      } })
-  
-   
-    return newarr
-  })
-  
-},[])
 
-// useCallback(()=>{ setData((old)=>old)},[])
+      const history = [...entry.history];
+      let contribution = entry.contribution;
 
-const Calltempdata=(data,point)=>{
-  
-  
-  setTempData((old)=>{
-    let newarr=JSON.parse(JSON.stringify(old));
-   old.forEach((value)=>{
-    if(value.id===data.currentPlayer.id){
-     
-      newarr[value.id-1].history.push(point)
-      newarr[value.id-1].point=point
-      } })
-  
-   
-    return newarr
-  })
-  
-}
-const CalltempdataAll=(data)=>{
-  
-  
-  setTempData((old)=>{
-    let newarr=JSON.parse(JSON.stringify(old));
-   old.forEach((value)=>{
-    if(value.id===data.currentPlayer.id){
-      setMax(()=>player[value.id-1].data.point)
-      newarr[value.id-1].history.push(player[value.id-1].data.point)
-      newarr[value.id-1].point=player[value.id-1].data.point
-      } })
-  
-   
-    return newarr
-  })
-  
-}
-
-
-const Update_player=useCallback((tempData,player)=>{
-  setData((old)=>{
-     var k=old.currentPlayer.id+1
-     if(k>player.length){k=1}
-  
-      while(tempData[k-1].check===false||player[k-1].check===false){k++;
-      if(k>player.length){k=1}}
-      return {...old,currentPlayer:{id:k,name:player[k-1].name}}
-    })
-  
-
-},[])
-
-const Update_TempHistory=(value)=>{
-  setTempHistory((old)=>{
-    let t=JSON.parse(JSON.stringify(old));
-    t.Hold.push(value)
-    t.maxPoint.push(maxPoint)
-    return {...old,Hold:t.Hold,maxPoint:t.maxPoint}})
-}
-
-const Undo_TempHistory=( TempHistory)=>{
-  setMax(()=>TempHistory.maxPoint[TempHistory.maxPoint.length-1])
-  
-  setTempHistory((old)=>{
-    let t=JSON.parse(JSON.stringify(old));
-    t.Hold.pop()
-    t.maxPoint.pop()
-    return {...old,Hold:t.Hold,maxPoint:t.maxPoint}})
-}
-
-const Hold=(data,no,tempData,player,event)=>{
-  Holdtempdata(data,no,tempData,player,event)
-  Update_player(tempData,player)
-  Update_TempHistory(1)
-  
-}
-const Call= (data,no,tempData,player,event)=>{
-  Calltempdata(data,maxPoint,event)
-  Update_player(tempData,player)
-  Update_TempHistory(0)
-}
-const Shaw=  (data,no,tempData,player,event)=>{
-  CalltempdataAll(data,player)
-  Update_player(tempData,player)
- 
-  Update_TempHistory(0)
-}
-const setIncrease = async(IncreasePoint)=>{
-  return maxPoint+Number(IncreasePoint)
-
-}
-const Increase= (data,no,tempData,player,IncreasePoint,event)=>{
-  event.preventDefault();
-  event.stopPropagation();
-
-  setIncrease(IncreasePoint).then((maxPoint)=>{
-    if(maxPoint<=player[data.currentPlayer.id-1].data.point){
-    setMax((old)=>old+Number(IncreasePoint));
-    Calltempdata(data,maxPoint,event)
-    Update_player(tempData,player)}})
-    
-   Update_TempHistory(0)
-}
-
-const UndoTempData=(id,data,player,TempHistory)=>{
-  setTempData((old)=>{
-    let newarr=JSON.parse(JSON.stringify(old));
-    let k=id-1
-    if(k===0){k=player.length}
-    while((newarr[k-1].check===false||player[k-1].check===false)&&TempHistory.Hold[TempHistory.Hold.length-1]===0){k--;
-      if(k<1){k=player.length}}
-   old.forEach((value)=>{
-  
-    if(value.id===k){
-   
-      if(TempHistory.Hold[TempHistory.Hold.length-1]===1){
-        newarr[value.id-1].check=true
-      }
-      else{
-        if(newarr[value.id-1].history.length===1){
-          if(data.small.id===value.id){
-            newarr[value.id-1].point=50 
-          }
-          else{
-            newarr[value.id-1].point=0
-          }
+      if (history.length) {
+        const last = history[history.length - 1];
+        if (last > contribution) {
+          contribution = last;
+        } else if (last < contribution) {
+          history.push(contribution);
         }
-        else{
-        newarr[value.id-1].point=newarr[value.id-1].history[newarr[value.id-1].history.length-2]
+      }
+
+      return {
+        ...entry,
+        contribution,
+        history,
+        isInHand: false,
+      };
+    });
+
+    const nextPlayerId = moveToNextPlayer(nextData, roundState.currentPlayerId);
+    commitRoundState(nextData, currentCallAmount, nextPlayerId);
+  }, [commitRoundState, currentCallAmount, moveToNextPlayer, roundData, roundState.currentPlayerId]);
+
+  const handleCall = useCallback(() => {
+    if (!roundState.currentPlayerId) {
+      return;
+    }
+
+    const nextData = roundData.map((entry) => {
+      if (entry.playerId !== roundState.currentPlayerId) {
+        return entry;
+      }
+
+      const history = entry.history.length
+        ? entry.history[entry.history.length - 1] === currentCallAmount
+          ? [...entry.history]
+          : [...entry.history, currentCallAmount]
+        : [currentCallAmount];
+
+      return {
+        ...entry,
+        contribution: currentCallAmount,
+        history,
+      };
+    });
+
+    const nextPlayerId = moveToNextPlayer(nextData, roundState.currentPlayerId);
+    commitRoundState(nextData, currentCallAmount, nextPlayerId);
+  }, [commitRoundState, currentCallAmount, moveToNextPlayer, roundData, roundState.currentPlayerId]);
+
+  const handleAllIn = useCallback(() => {
+    if (!roundState.currentPlayerId) {
+      return;
+    }
+
+    const player = players.find((candidate) => candidate.id === roundState.currentPlayerId);
+    if (!player) {
+      return;
+    }
+
+    const newCallAmount = player.stack;
+    const nextData = roundData.map((entry) => {
+      if (entry.playerId !== roundState.currentPlayerId) {
+        return entry;
+      }
+
+      const history = [...entry.history, newCallAmount];
+
+      return {
+        ...entry,
+        contribution: newCallAmount,
+        history,
+      };
+    });
+
+    const nextPlayerId = moveToNextPlayer(nextData, roundState.currentPlayerId);
+    commitRoundState(nextData, newCallAmount, nextPlayerId);
+    setRaiseIncrement(String(BIG_BLIND));
+  }, [commitRoundState, moveToNextPlayer, players, roundData, roundState.currentPlayerId]);
+
+  const handleRaise = useCallback(
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (!roundState.currentPlayerId) {
+        return;
+      }
+
+      const raiseValue = Number(raiseIncrement);
+      if (!Number.isFinite(raiseValue) || raiseValue <= 0) {
+        return;
+      }
+
+      const player = players.find((candidate) => candidate.id === roundState.currentPlayerId);
+      if (!player) {
+        return;
+      }
+
+      const nextCallAmount = currentCallAmount + raiseValue;
+      if (nextCallAmount > player.stack) {
+        return;
+      }
+
+      const nextData = roundData.map((entry) => {
+        if (entry.playerId !== roundState.currentPlayerId) {
+          return entry;
         }
-        newarr[value.id-1].history.pop()
+
+        return {
+          ...entry,
+          contribution: nextCallAmount,
+          history: [...entry.history, nextCallAmount],
+        };
+      });
+
+      const nextPlayerId = moveToNextPlayer(nextData, roundState.currentPlayerId);
+      commitRoundState(nextData, nextCallAmount, nextPlayerId);
+      setRaiseIncrement(String(BIG_BLIND));
+    },
+    [commitRoundState, currentCallAmount, moveToNextPlayer, players, raiseIncrement, roundData, roundState.currentPlayerId],
+  );
+
+  const handleUndo = useCallback(() => {
+    setRoundHistory((previous) => {
+      if (previous.length <= 1) {
+        return previous;
       }
-      
-      
-      
-      } })
-  return newarr
-  })
-  
-}
-const UndoCurrent=(tempData,player,TempHistory,data)=>{
-  setData((old)=>{
-    // let newarr=JSON.parse(JSON.stringify(old))
-   let newarr=data
-    var k=newarr.currentPlayer.id-1
-    if(k<1){k=player.length}
- 
-     while((tempData[k-1].check===false||player[k-1].check===false)&&TempHistory.Hold[TempHistory.Hold.length-1]===0){k--;
-     if(k<1){k=player.length}}
-     return {...newarr,currentPlayer:{id:k,name:player[k-1].name}}
-   })
-}
- const findCurrent= async(data)=>{
-   return data
- }
-const Undo =(data,player,tempData,TempHistory,event)=>{
-  if(TempHistory.Hold.length>1){
- findCurrent(data).then((data)=>{
-  UndoTempData( data.currentPlayer.id,data,player,TempHistory)
-  UndoCurrent(tempData,player,TempHistory,data)
- })
-  
-  Undo_TempHistory( TempHistory)}
- 
-}
 
-const intialTempData=()=>{
-  // console.log(data)
-  setTempData(()=>{
-    let temp=[]
-    player.forEach(function(value){
-      if(value.id===data.big.id){
-        temp.push({id:value.id,name:value.name,point:100,history:[100],check:true})
-      }
-      else if(value.id===data.small.id){
-        temp.push({id:value.id,name:value.name,point:50,history:[],check:true})
-      }
-      else{
-        temp.push({id:value.id,name:value.name,point:0,history:[],check:true})
-      }
-     
-    })
-   // console.log(temp)
-    return temp;
-  })
-}
+      const nextHistory = previous.slice(0, -1);
+      const snapshot = nextHistory[nextHistory.length - 1];
 
-const Addplayer = (value)=>{
-  const t=value.target.value
-  //  console.log(newplayer)
-   setNewplayer((old)=>{return {...old,name:t}})}
- 
+      setRoundData(deepCloneRoundData(snapshot.contributions));
+      setCurrentCallAmount(snapshot.currentCallAmount);
+      setRoundState((prev) => ({
+        ...prev,
+        currentPlayerId: snapshot.currentPlayerId,
+      }));
 
-const IntialData=(old,newplayer)=>{
- 
-return {
-  id:old.length+1,
-  name:newplayer.name,
-  check:true,
-  data:{point:2000,pointHistory:[2000],tempPoint:0,tempPointHistory:[],}}
-}
+      return nextHistory;
+    });
+  }, []);
 
+  const handleCompleteRound = useCallback(() => {
+    if (!gameStarted || selectedWinnerCount === 0) {
+      return;
+    }
 
+    const totalPot = roundData.reduce((sum, entry) => sum + entry.contribution, 0);
+    const roundDataById = new Map(roundData.map((entry) => [entry.playerId, entry]));
+    const share = Math.floor(totalPot / selectedWinnerCount);
 
+    setPlayers((previousPlayers) => {
+      const updatedPlayers = previousPlayers.map((player, index) => {
+        const contribution = roundDataById.get(player.id)?.contribution ?? 0;
+        const isWinner = !!winnerSelections[index];
+        const nextStack = isWinner
+          ? player.stack + share - contribution
+          : player.stack - contribution;
+        const isActive = nextStack > 0;
 
-const handleSubmit = (event,IntialData) => {
-  
-  event.preventDefault();
-  event.stopPropagation();
-  setPlayer((old)=>[...old,IntialData(old,newplayer)])
-  setNocurrent((old)=>old+1);
-  setTick((old)=>{
-    let temp=JSON.parse(JSON.stringify(old));
-   temp.push(0)
-   return temp
- })
-//  console.log(newplayer.name)
-}
-// useCallback()
+        return {
+          ...player,
+          isActive,
+          stack: nextStack,
+          stackHistory: [...player.stackHistory, nextStack],
+        };
+      });
 
+      const nextBigBlindId =
+        getNextActivePlayerId(updatedPlayers, roundState.bigBlindId) ??
+        updatedPlayers.find((player) => player.isActive)?.id ??
+        null;
+      const nextSmallBlindId =
+        getNextActivePlayerId(updatedPlayers, roundState.smallBlindId) ?? nextBigBlindId;
+      const seededRoundState = {
+        bigBlindId: nextBigBlindId,
+        smallBlindId: nextSmallBlindId,
+      };
+      const nextRoundData = buildRoundData(updatedPlayers, seededRoundState);
+      const nextCurrentPlayerId =
+        getNextInHandPlayerId(nextRoundData, updatedPlayers, nextSmallBlindId) ?? nextSmallBlindId;
 
-const IntialGame=useCallback((event,player,intialTempData)=>{
-  event.preventDefault();
-  event.stopPropagation();
-  setData((old)=>{return {...old,big:{id:1,name:player[0].name,tempoint:0},small:{id:2,name:player[1].name,tempoint:0},currentPlayer:{id:2,name:player[1].name,tempoint:0}}})
-   intialTempData();
-  setStart(()=>'')
-  setNocurrent(()=>player.length) 
-   
-},[])
+      setRoundState({
+        bigBlindId: nextBigBlindId,
+        smallBlindId: nextSmallBlindId,
+        currentPlayerId: nextCurrentPlayerId,
+      });
+      setRoundData(nextRoundData);
+      setCurrentCallAmount(BIG_BLIND);
+      setRoundHistory([
+        {
+          contributions: deepCloneRoundData(nextRoundData),
+          currentCallAmount: BIG_BLIND,
+          currentPlayerId: nextCurrentPlayerId,
+        },
+      ]);
+      setWinnerSelections(new Array(updatedPlayers.length).fill(false));
+      setRaiseIncrement(String(BIG_BLIND));
 
-function ActivePlayer(check){
-  if(check){return {color:"blue"}}
-  else{return {color:"red"} }
-}
+      return updatedPlayers;
+    });
+  }, [gameStarted, roundData, roundState.bigBlindId, roundState.smallBlindId, selectedWinnerCount, winnerSelections]);
 
+  const toggleTable = useCallback(() => {
+    setShowTable((previous) => !previous);
+  }, []);
 
+  const handleRaiseInputChange = useCallback((event) => {
+    setRaiseIncrement(event.target.value);
+  }, []);
 
-const Addpoint=(value)=>{
-  setIncreasePoint(()=>value.target.value)
+  const canPerformActions = gameStarted && !!roundState.currentPlayerId;
 
-  // console.log(tick)
-}
-// const AddNewPlayer2=useCallback(()=>{
-//   return newplayer.name
-// },[newplayer])
-
-const AddNewPlayer =useCallback( ( prop)=>{if(start==='true'){
- return (<Form onSubmit={(event)=>{prop.handleSubmit(event,IntialData)}} >
- <Stack direction="horizontal" gap="2">
- <Form.Label>Name</Form.Label>
- <Form.Text className="text-muted">
-      Add atleast two player
- </Form.Text></Stack>
- <Form.Group  controlId="formname"></Form.Group>
- <Stack direction="horizontal" gap="3">
- 
- <Form.Control className="me-auto" type="name"  onChange={(event)=>prop.Addplayer(event)} />
- 
- 
- <Button variant="primary" type="submit">
- Submit
- </Button></Stack>
- </Form>)
-}},[start])
-
-const UpdateShowTable=(event)=>{
- if(ShowTable==='false'){
-  //  console.log("hello")
-  setShowTable(()=>'true')}
-  else{setShowTable(()=>'false')}
-}
-const AddTable =useCallback((prop)=>{
-  // console.log(prop.ShowTable)
- if(prop.ShowTable==='true'){
-  
-   return(<Row className="md" >
-      {prop.player.map((value,index)=>{
-        return <Col key={index} className="border">
-        <Row className="border" style={{color:"green"}}>{value.name}</Row>
-        {value.data.pointHistory.map((point)=>{
-         return  <Row key={index+index+1}>{point}</Row>
-        })}
-        </Col>
-      })}
-    </Row>)
- }
-},[])
-
-return(<>
-
-<Container>
-  
-    <Row className="md">
-    <Col md="5" >
-      <Row className="md"><Button variant="danger" disabled={!start} onClick={(event)=>{IntialGame(event,player,intialTempData)}}>Game Start</Button></Row>
-      <Row className="md">{<AddNewPlayer handleSubmit={handleSubmit} Addplayer={Addplayer}/> }</Row>
-      
-      <Row><Col  >Name</Col> <Col  >Points</Col></Row>
-      
-      
-       {
-        player.map((value,index)=><Row className="md border bg-light" key={index*4+4}><Col   style={ActivePlayer(value.check)}>{value.name}</Col> <Col >{value.data.point}</Col></Row>)
-        }
-    
-    </Col>
-    <Col md="1"></Col>
-    <Col md="6" >
-    <Row className="md"><Button variant="dark" onClick={(event)=>{Done(data,nocurrent,tempData,player,event)}}>Done</Button></Row>
-
-      <h3>Current Player: {data.currentPlayer.name}</h3>
-      <p>Big: {data.big.name}</p>
-      <p>Small: {data.small.name}</p>
-      
-      
-        <Stack direction="Vertical" gap="2">
-        <Stack direction="horizontal" gap="4">
-        <Button variant="primary" onClick={(event)=>{Hold(data,nocurrent,tempData,player,event)}}>Fold</Button>
-        <Button variant="primary" onClick={(event)=>{Call(data,nocurrent,tempData,player,event)}}>Call</Button>
-        <Button variant="primary" onClick={(event)=>{Shaw(data,nocurrent,tempData,player,event)}}>ALL IN</Button>
-        <Button variant="primary" onClick={(event)=>{Undo(data,player,tempData,TempHistory,event)}}>Undo</Button>
-        </Stack>
-        
-        <Form onSubmit={(event)=>{Increase(data,nocurrent,tempData,player,IncreasePoint,event)}} >
-        <Stack  direction="horizontal" gap="1">
-         <Button variant="primary" type="submit"> Increase</Button>
-        <Form.Group  controlId="formname">
-         
-         <Form.Control type="name" value={IncreasePoint} onChange={Addpoint} />
-         
-        </Form.Group>
-        </Stack>
-      </Form>
-     
-       
+  return (
     <Container>
-      {tempData.map((value,index)=>{
-        
-        if(player[value.id-1].check===true){
-        return(
-          <Row  className="border" key={index}>
-            <Col md={{span:4,offset:0}}>
-              <Row>
-            <Stack direction="horizontal" gap="2">
-            <Col md={{span:1,offset:0}}>
-            <Form.Check 
-            type={"checkbox"}
-            id={`default-checkbox}`}
-            onChange={(event)=>{check(value.id,event)}}
-             />
-             </Col>
-             <Col md={{span:2,offset:1}}>
-              <span style={ActivePlayer(value.check)}>{value.name}</span>
-              </Col>
-              </Stack>
-              </Row>
-              </Col>
-            {value.history.map((history1,index)=>
-             {return  <Col key={index*5+5} >{history1}</Col>}
-           )}
+      <Row className="md">
+        <Col md="5">
+          <Row className="md">
+            <Button
+              variant="danger"
+              disabled={gameStarted || players.length < 2}
+              onClick={handleStartGame}
+            >
+              Game Start
+            </Button>
           </Row>
-        )}
-        else{ return  }
-      })}
-      </Container>
-      </Stack>
-    </Col>
+          {!gameStarted && (
+            <Row className="md">
+              <Form onSubmit={handleAddPlayer}>
+                <Stack direction="horizontal" gap="2">
+                  <Form.Label>Name</Form.Label>
+                  <Form.Text className="text-muted">Add at least two players</Form.Text>
+                </Stack>
+                <Stack direction="horizontal" gap="3">
+                  <Form.Control
+                    className="me-auto"
+                    type="text"
+                    value={newPlayerName}
+                    onChange={(event) => setNewPlayerName(event.target.value)}
+                  />
+                  <Button variant="primary" type="submit">
+                    Submit
+                  </Button>
+                </Stack>
+              </Form>
+            </Row>
+          )}
+          <Row>
+            <Col>Name</Col>
+            <Col>Points</Col>
+          </Row>
+          {players.map((player) => (
+            <Row className="md border bg-light" key={player.id}>
+              <Col style={playerColorStyle(player.isActive)}>{player.name}</Col>
+              <Col>{player.stack}</Col>
+            </Row>
+          ))}
+        </Col>
+        <Col md="1" />
+        <Col md="6">
+          <Row className="md">
+            <Button
+              variant="dark"
+              disabled={!canPerformActions || selectedWinnerCount === 0}
+              onClick={handleCompleteRound}
+            >
+              Done
+            </Button>
+          </Row>
 
-    
+          <h3>Current Player: {currentPlayer?.name ?? "-"}</h3>
+          <p>Big: {bigBlindPlayer?.name ?? "-"}</p>
+          <p>Small: {smallBlindPlayer?.name ?? "-"}</p>
 
-    </Row>
-    <Row>
-     <Button  variant="light" onClick={UpdateShowTable}>Table</Button> 
-    </Row>
-    
-   <AddTable ShowTable={ShowTable} player={player}/>
-    
-   
-</Container>
-</>);
+          <Stack direction="vertical" gap="2">
+            <Stack direction="horizontal" gap="4">
+              <Button variant="primary" disabled={!canPerformActions} onClick={handleFold}>
+                Fold
+              </Button>
+              <Button variant="primary" disabled={!canPerformActions} onClick={handleCall}>
+                Call
+              </Button>
+              <Button variant="primary" disabled={!canPerformActions} onClick={handleAllIn}>
+                ALL IN
+              </Button>
+              <Button variant="primary" disabled={!canUndo} onClick={handleUndo}>
+                Undo
+              </Button>
+            </Stack>
+
+            <Form onSubmit={handleRaise}>
+              <Stack direction="horizontal" gap="1">
+                <Button variant="primary" type="submit" disabled={!canPerformActions}>
+                  Increase
+                </Button>
+                <Form.Group controlId="raiseValue">
+                  <Form.Control
+                    type="number"
+                    value={raiseIncrement}
+                    onChange={handleRaiseInputChange}
+                  />
+                </Form.Group>
+              </Stack>
+            </Form>
+
+            <Container>
+              {roundData.map((entry) => {
+                const player = players.find((candidate) => candidate.id === entry.playerId);
+                if (!player || !player.isActive) {
+                  return null;
+                }
+
+                const selectionIndex = player.id - 1;
+
+                return (
+                  <Row className="border" key={entry.playerId}>
+                    <Col md={{ span: 4, offset: 0 }}>
+                      <Row>
+                        <Stack direction="horizontal" gap="2">
+                          <Col md={{ span: 1, offset: 0 }}>
+                            <Form.Check
+                              type="checkbox"
+                              id={`winner-${entry.playerId}`}
+                              checked={winnerSelections[selectionIndex] ?? false}
+                              onChange={(event) =>
+                                handleToggleWinner(selectionIndex, event.target.checked)
+                              }
+                            />
+                          </Col>
+                          <Col md={{ span: 2, offset: 1 }}>
+                            <span style={playerColorStyle(entry.isInHand)}>{entry.name}</span>
+                          </Col>
+                        </Stack>
+                      </Row>
+                    </Col>
+                    {entry.history.map((value, index) => (
+                      <Col key={`${entry.playerId}-${index}`}>{value}</Col>
+                    ))}
+                  </Row>
+                );
+              })}
+            </Container>
+          </Stack>
+        </Col>
+      </Row>
+      <Row>
+        <Button variant="light" onClick={toggleTable}>
+          Table
+        </Button>
+      </Row>
+
+      {showTable && (
+        <Row className="md">
+          {players.map((player) => (
+            <Col key={player.id} className="border">
+              <Row className="border" style={{ color: "green" }}>
+                {player.name}
+              </Row>
+              {player.stackHistory.map((point, index) => (
+                <Row key={`${player.id}-history-${index}`}>{point}</Row>
+              ))}
+            </Col>
+          ))}
+        </Row>
+      )}
+    </Container>
+  );
 }
-export default Pocker
+
+export default Pocker;
